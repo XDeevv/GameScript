@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
-project(squirrel
+project(GameScript
   VERSION 3.2
-  DESCRIPTION "The Squirrel programming language"
-  HOMEPAGE_URL "http://squirrel-lang.org/"
+  DESCRIPTION "A lightweight fork of the language Squirrel specifically for game engine scripting."
+  HOMEPAGE_URL "http://script.gs/"
   LANGUAGES C CXX
   )
 

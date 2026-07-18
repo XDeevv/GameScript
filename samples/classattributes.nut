@@ -33,3 +33,4 @@ foreach(member,val in Foo)
         ::print("\t<no attributes>\n")
     }
 }
+

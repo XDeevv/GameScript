@@ -1,22 +1,23 @@
 
-SQUIRREL=.
+GameScript=.
 MAKE=make
 
-sq32: folders
-	cd squirrel; $(MAKE)
-	cd sqstdlib; $(MAKE)
-	cd sq; $(MAKE)
+GS32: folders
+	cd GameScript; $(MAKE)
+	cd GSstdlib; $(MAKE)
+	cd GS; $(MAKE)
 
-sqprof: folders
-	cd squirrel; $(MAKE) sqprof
-	cd sqstdlib; $(MAKE) sqprof
-	cd sq; $(MAKE) sqprof
+GSprof: folders
+	cd GameScript; $(MAKE) GSprof
+	cd GSstdlib; $(MAKE) GSprof
+	cd GS; $(MAKE) GSprof
 
-sq64: folders
-	cd squirrel; $(MAKE) sq64
-	cd sqstdlib; $(MAKE) sq64
-	cd sq; $(MAKE) sq64
+GS64: folders
+	cd GameScript; $(MAKE) GS64
+	cd GSstdlib; $(MAKE) GS64
+	cd GS; $(MAKE) GS64
 
 folders:
 	mkdir -p lib
 	mkdir -p bin
+

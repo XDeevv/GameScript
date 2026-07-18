@@ -27,3 +27,4 @@ for (k = 0 ; k < n; k+=1) {
 }
 print(y[0].tostring()+" "+y[n-1]);
 
+

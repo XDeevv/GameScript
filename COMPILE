@@ -1,14 +1,14 @@
-Squirrel 3.2 stable
+GameScript 3.2 stable
 --------------------------------------------------------
 What is in this distribution?
 
-squirrel
+GameScript
     static library implementing the compiler and interpreter of the language
 
-sqstdlib
+GSstdlib
     the standard utility libraries
 
-sq
+GS
     stand alone interpreter
 
 doc
@@ -39,7 +39,7 @@ under Linux, type something like
  $ cd ..; rm -r build
 
 The default installation directory will be /usr/local on Unix platforms,
-and C:/Program Files/squirrel on Windows. The binaries will go into bin/
+and C:/Program Files/GameScript on Windows. The binaries will go into bin/
 and the libraries into lib/. You can change this behavior by calling CMake like
 this:
 
@@ -54,7 +54,7 @@ can be specified. For instance,
 will install the libraries into a 'lib64' subdirectory in the top
 source directory. The public header files will be installed into the directory
 the value of CMAKE_INSTALL_INCLUDEDIR points to. If you want only the
-binaries and no headers, just set -DSQ_DISABLE_HEADER_INSTALLER=ON, and no
+binaries and no headers, just set -DGS_DISABLE_HEADER_INSTALLER=ON, and no
 header files will be installed.
 
 Under Windows, it is probably easiest to use the CMake GUI interface,
@@ -72,11 +72,11 @@ for 32 bits systems
 
 for 64 bits systems
 
- $ make sq64
+ $ make GS64
 
 VISUAL C++ USERS
 .........................................................
-Open squirrel.dsw from the root project directory and build(dho!)
+Open GameScript.dsw from the root project directory and build(dho!)
 
 DOCUMENTATION GENERATION
 .........................................................
@@ -84,3 +84,4 @@ To be able to compile the documentation, make sure that you have Python
 installed and the packages sphinx and sphinx_rtd_theme. Browse into doc/
 and use either the Makefile for GCC-based platforms or make.bat for
 Windows platforms.
+

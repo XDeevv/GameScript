@@ -8,7 +8,7 @@ configuration:
  - Debug
  - Release
 
-clone_folder: c:\sq
+clone_folder: c:\GS
 
 before_build:
  - mkdir build
@@ -26,3 +26,4 @@ artifacts:
  - path: build\*\%configuration%\*.dll
 
 test: off
+

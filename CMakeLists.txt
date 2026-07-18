@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.12)
 project(GameScript
   VERSION 3.2
-  DESCRIPTION "A lightweight fork of the language Squirrel specifically for game engine scripting."
+  DESCRIPTION "A lightweight fork of the language GameScript specifically for game engine scripting."
   HOMEPAGE_URL "http://script.gs/"
   LANGUAGES C CXX
   )
 
 option(DISABLE_STATIC "Avoid building/installing static libraries.")
-option(LONG_OUTPUT_NAMES "Use longer names for binaries and libraries: squirrel3 (not sq).")
+option(LONG_OUTPUT_NAMES "Use longer names for binaries and libraries: GameScript3 (not GS).")
 
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -38,58 +38,61 @@ elseif(MSVC)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
-# Need to be defined here to be visible to squirrel.pc.in
+# Need to be defined here to be visible to GameScript.pc.in
 if(LONG_OUTPUT_NAMES)
-  set(LIBSQUIRREL_NAME squirrel3)
-  set(SQSTDLIB_NAME sqstdlib3)
+  set(LIBGameScript_NAME GameScript3)
+  set(GSSTDLIB_NAME gstdlib3)
 else()
-  set(LIBSQUIRREL_NAME squirrel)
-  set(SQSTDLIB_NAME sqstdlib)
+  set(LIBGameScript_NAME GameScript)
+  set(GSSTDLIB_NAME gstdlib)
 endif()
 
-add_subdirectory(squirrel)
-add_subdirectory(sqstdlib)
-if(NOT SQ_DISABLE_INTERPRETER)
-  add_subdirectory(sq)
+add_subdirectory(GameScript)
+add_subdirectory(gstdlib)
+if(NOT GS_DISABLE_INTERPRETER)
+  add_subdirectory(GS)
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(tgts)
   if(NOT DISABLE_DYNAMIC)
-    list(APPEND tgts squirrel sqstdlib)
-    if(NOT SQ_DISABLE_INTERPRETER)
-      list(APPEND tgts sq)
+    list(APPEND tgts GameScript gstdlib)
+    if(NOT GS_DISABLE_INTERPRETER)
+      list(APPEND tgts gamescript)
     endif()
   endif()
   if(NOT DISABLE_STATIC)
-    list(APPEND tgts squirrel_static sqstdlib_static)
-    if(NOT SQ_DISABLE_INTERPRETER)
-      list(APPEND tgts sq_static)
+    list(APPEND tgts GameScript_static gstdlib_static)
+    if(NOT GS_DISABLE_INTERPRETER)
+      list(APPEND tgts gamescript_static)
     endif()
   endif()
+  
   foreach(t ${tgts})
-    target_compile_definitions(${t} PUBLIC -D_SQ64)
+    if(TARGET ${t})
+      target_compile_definitions(${t} PUBLIC -D_GS64)
+    endif()
   endforeach()
 endif()
 
 if(NOT DISABLE_DYNAMIC)
-  set_target_properties(squirrel sqstdlib PROPERTIES SOVERSION 0 VERSION 0.0.0)
+  set_target_properties(GameScript gstdlib PROPERTIES SOVERSION 0 VERSION 0.0.0)
 endif()
 
-if(NOT SQ_DISABLE_INSTALLER AND NOT SQ_DISABLE_HEADER_INSTALLER)
+if(NOT GS_DISABLE_INSTALLER AND NOT GS_DISABLE_HEADER_INSTALLER)
   install(FILES
-    include/sqconfig.h
-    include/squirrel.h
+    include/GSconfig.h
+    include/GameScript.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT Development
     )
   install(FILES
-    include/sqstdaux.h
-    include/sqstdblob.h
-    include/sqstdio.h
-    include/sqstdmath.h
-    include/sqstdstring.h
-    include/sqstdsystem.h
+    include/gstdaux.h
+    include/gstdblob.h
+    include/gstdio.h
+    include/gstdmath.h
+    include/gstdstring.h
+    include/gstdsystem.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT Development
     )
@@ -98,33 +101,33 @@ endif()
 include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/squirrel/squirrel-config-version.cmake"
-  VERSION "${squirrel_VERSION}"
+  "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/GameScript/GameScript-config-version.cmake"
+  VERSION "${GameScript_VERSION}"
   COMPATIBILITY AnyNewerVersion
   )
 
 configure_package_config_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/squirrel-config.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/squirrel/squirrel-config.cmake"
-  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/squirrel"
+  "${CMAKE_CURRENT_SOURCE_DIR}/GameScript-config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/GameScript/GameScript-config.cmake"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/GameScript"
   )
 
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/squirrel.pc.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/GameScript.pc.in"
   ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
   @ONLY
 )
 
-if(NOT SQ_DISABLE_INSTALLER AND NOT SQ_DISABLE_CMAKE_INSTALLER)
-  export(EXPORT squirrel
-    NAMESPACE squirrel::
-    FILE "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/squirrel/squirrel-targets.cmake"
+if(NOT GS_DISABLE_INSTALLER AND NOT GS_DISABLE_CMAKE_INSTALLER)
+  export(EXPORT GameScript
+    NAMESPACE GameScript::
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/GameScript/GameScript-targets.cmake"
     )
 
   install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/squirrel/squirrel-config-version.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/squirrel/squirrel-config.cmake"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/squirrel"
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/GameScript/GameScript-config-version.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/GameScript/GameScript-config.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/GameScript"
     COMPONENT Development
     )
 
@@ -139,10 +142,10 @@ if(NOT SQ_DISABLE_INSTALLER AND NOT SQ_DISABLE_CMAKE_INSTALLER)
     )
   endif()
 
-  install(EXPORT squirrel
-    NAMESPACE squirrel::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/squirrel"
-    FILE "squirrel-targets.cmake"
+  install(EXPORT GameScript
+    NAMESPACE GameScript::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/GameScript"
+    FILE "GameScript-targets.cmake"
     COMPONENT Development
     )
 endif()

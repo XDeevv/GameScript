@@ -66,3 +66,4 @@ function main() {
 local start=clock();
 main();
 print("TIME="+(clock()-start)+"\n");
+

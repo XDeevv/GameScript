@@ -30,3 +30,4 @@ do
     ::print("index ["+i+"]="+arr[i]+"\n");
     i+=1;
 }while(i<arr.len());
+

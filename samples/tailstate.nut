@@ -22,3 +22,4 @@ local statethread = ::newthread(state1)
 
 for(local i = 0; i < 10000; i++)
     ::print(statethread.wakeup()+"\n");
+

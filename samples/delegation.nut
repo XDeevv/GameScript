@@ -52,3 +52,4 @@ player.PrintPos();
 player.pos.x=123;
 
 player.PrintPos();
+

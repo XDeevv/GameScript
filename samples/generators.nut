@@ -40,3 +40,4 @@ foreach(val in fiboz(10))
 {
     ::print(">"+val+"\n");
 }
+

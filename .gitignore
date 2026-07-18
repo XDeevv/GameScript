@@ -1,6 +1,118 @@
-# Folders created at compilation
+# ------------------------------------------------
+# Fully updated new .gitignore file
+# For later additions and more concistency.
+# ------------------------------------------------
+
+# Build output
+
+# CMake build directories
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+
+# Generated binaries
 bin/
 lib/
+*.dll
+*.exe
+*.so
+*.dylib
+*.a
+*.lib
+*.obj
+*.o
 
-# Folders created at documentation generation
+# Debug symbols
+*.pdb
+*.ilk
+*.dSYM/
+
+# Visual Studio
+
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.user
+*.ncb
+*.opensdf
+*.sdf
+
+# VS Code
+
+.vscode/
+
+# CMake / Ninja
+
+.ninja_deps
+.ninja_log
+.ninja_manifest
+compile_commands.json
+
+# Documentation builds
+
 doc/build/
+docs/build/
+Doxyfile.cache
+
+# Package / installer output
+
+dist/
+out/
+release/
+debug/
+packages/
+
+# Temporary files
+
+*.tmp
+*.temp
+*.bak
+*.old
+*.swp
+*.swo
+*~
+
+# Logs
+
+*.log
+
+# OS files
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+.directory
+
+__pycache__/
+*.py[cod]
+
+# GameScript generated files
+
+# Compiled scripts
+*.gsc
+*.gscb
+
+# GameScript cache
+.gamescript_cache/
+
+# IDE project files from other editors
+
+.idea/
+*.iml
+
+# Local configuration
+
+.env
+*.local

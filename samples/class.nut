@@ -47,3 +47,4 @@ class FakeNamespace.Utils.SuperClass {
 }
 
 local testy = FakeNamespace.Utils.SuperClass();
+

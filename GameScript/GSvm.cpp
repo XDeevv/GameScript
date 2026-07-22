@@ -596,7 +596,12 @@ bool GSVM::FOREACH_OP(GSObjectPtr &o1,GSObjectPtr &o2,GSObjectPtr
 bool GSVM::CLOSURE_OP(GSObjectPtr &target, GSFunctionProto *func,GSInteger boundtarget)
 {
     GSInteger nouters;
-    GSClosure *closure = GSClosure::Create(_ss(this), func,_table(_roottable)->GetWeakRef(OT_TABLE));
+    
+    //////////////////////////////////////////////
+    GSClosure *current_closure = _closure(ci->_closure);
+    GSClosure *closure = GSClosure::Create(_ss(this), func, current_closure->_root);
+    //////////////////////////////////////////////
+    
     if((nouters = func->_noutervalues)) {
         for(GSInteger i = 0; i<nouters; i++) {
             GSOuterVar &v = func->_outervalues[i];
@@ -617,22 +622,21 @@ bool GSVM::CLOSURE_OP(GSObjectPtr &target, GSFunctionProto *func,GSInteger bound
             closure->_defaultparams[i] = _stack._vals[_stackbase + spos];
         }
     }
-	if (boundtarget != 0xFF) {
-		GSObjectPtr &val = _stack._vals[_stackbase + boundtarget];
-		GSObjectType t = GS_type(val);
-		if (t == OT_TABLE || t == OT_CLASS || t == OT_INSTANCE || t == OT_ARRAY) {
-			closure->_env = _refcounted(val)->GetWeakRef(t);
-			__ObjAddRef(closure->_env);
-		}
-		else {
-			Raise_Error(_SC("cannot bind a %s as environment object"), IdType2Name(t));
-			closure->Release();
-			return false;
-		}
-	}
+    if (boundtarget != 0xFF) {
+        GSObjectPtr &val = _stack._vals[_stackbase + boundtarget];
+        GSObjectType t = GS_type(val);
+        if (t == OT_TABLE || t == OT_CLASS || t == OT_INSTANCE || t == OT_ARRAY) {
+            closure->_env = _refcounted(val)->GetWeakRef(t);
+            __ObjAddRef(closure->_env);
+        }
+        else {
+            Raise_Error(_SC("cannot bind a %s as environment object"), IdType2Name(t));
+            closure->Release();
+            return false;
+        }
+    }
     target = closure;
     return true;
-
 }
 
 
@@ -770,6 +774,14 @@ static GSObjectPtr BuildNamespaceTables(GSVM* vm, GSObjectPtr root, GSObjectPtr 
     }
     return current;
 }
+
+static GSInteger ImportFileRead(GSUserPointer file) {
+    FILE *f = (FILE *)file;
+    int c = fgetc(f);
+    if (c == EOF) return 0;
+    return c;
+}
+
 bool GSVM::Execute(GSObjectPtr &closure, GSInteger nargs, GSInteger stackbase,GSObjectPtr &outres, GSBool raiseerror,ExecutionType et)
 {
     if ((_nnativecalls + 1) > MAX_NATIVE_CALLS) { Raise_Error(_SC("Native stack overflow")); return false; }
@@ -821,27 +833,79 @@ exception_restore:
             case _OP_LOAD: TARGET = ci->_literals[arg1]; continue;
             case _OP_NAMESPACE: {
                 GSObjectPtr ns_string = STK(arg0);
-
                 GSObjectPtr current_table = BuildNamespaceTables(this, _roottable, ns_string);
-                GSClosure *c = _closure(ci->_closure);
-                GSWeakRef *new_root = _table(current_table)->GetWeakRef(OT_TABLE);
-    
-                __ObjAddRef(new_root);
-                if (c->_root) {
-                    __ObjRelease(c->_root);
-                }
-                c->_root = new_root;
                 
-                STK(0) = current_table; 
-    
+                GSClosure *c = _closure(ci->_closure);
+                GSObjectPtr root_obj = c->_root->_obj;
+                if (GS_type(root_obj) == OT_TABLE) {
+                    GSObjectPtr ns_key = GSString::Create(_ss(this), _SC("__namespace"));
+                    _table(root_obj)->NewSlot(ns_key, current_table);
+                }
+                
                 continue;
             }
 
             case _OP_IMPORT: {
                 GSObjectPtr import_string = STK(arg0);
                 
-                GSClosure *c = _closure(ci->_closure);
-                c->_imports.push_back(import_string);
+                GSObjectPtr modules_table;
+                GSObjectPtr modules_key = GSString::Create(_ss(this), _SC("__modules"));
+                if (!Get(_roottable, modules_key, modules_table, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) {
+                    modules_table = GSTable::Create(_ss(this), 0);
+                    NewSlot(_roottable, modules_key, modules_table, false);
+                }
+
+                GSObjectPtr cached_module;
+                if (Get(modules_table, import_string, cached_module, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) {
+                    continue;
+                }
+
+                GSChar filepath[1024];
+                const GSChar* src = _stringval(import_string);
+                int c = 0;
+                while (*src && c < 1019) {
+                    filepath[c++] = (*src == _SC('/')) ? _SC('/') : *src;
+                    src++;
+                }
+                filepath[c++] = _SC('.'); filepath[c++] = _SC('g'); filepath[c++] = _SC('s'); filepath[c] = _SC('\0');
+                
+                FILE *f = NULL;
+#ifdef GSUNICODE
+                f = _wfopen(filepath, _SC("rb"));
+#else
+                f = fopen(filepath, _SC("rb"));
+#endif
+                if (f) {
+                    GSObjectPtr closure_out;
+                    if (Compile(this, ImportFileRead, f, filepath, closure_out, true, true)) {
+                        
+                        GSObjectPtr sandbox = GSTable::Create(_ss(this), 0);
+                        _table(sandbox)->SetDelegate(_table(_roottable));
+
+                        GSObjectPtr ns_key = GSString::Create(_ss(this), _SC("__namespace"));
+                        _table(sandbox)->NewSlot(ns_key, sandbox);
+
+                        GSClosure *closure = GSClosure::Create(_ss(this), _funcproto(closure_out), _table(sandbox)->GetWeakRef(OT_TABLE));
+                        GSObjectPtr closure_obj = closure;
+                        
+                        NewSlot(modules_table, import_string, closure_obj, false);
+
+                        GSInteger oldtop = _top;
+                        Push(sandbox);
+                        GSObjectPtr out;
+                        Call(closure_obj, 1, oldtop, out, GSTrue);
+                        _top = oldtop;
+                    } else {
+                        fclose(f);
+                        Raise_Error(_SC("failed to compile imported module '%s'"), _stringval(import_string));
+                        GS_THROW();
+                    }
+                    fclose(f);
+                } 
+                else {
+                    Raise_Error(_SC("cannot load imported module '%s' (file not found: %s)"), _stringval(import_string), filepath);
+                    GS_THROW();
+                }
                 
                 continue;
             }
@@ -1363,13 +1427,6 @@ bool GSVM::TailCall(GSClosure *closure, GSInteger parambase,GSInteger nparams)
 #define FALLBACK_OK         0
 #define FALLBACK_NO_MATCH   1
 #define FALLBACK_ERROR      2
-
-static GSInteger ImportFileRead(GSUserPointer file) {
-    FILE *f = (FILE *)file;
-    int c = fgetc(f);
-    if (c == EOF) return 0;
-    return c;
-}
 
 bool GSVM::Get(const GSObjectPtr &self, const GSObjectPtr &key, GSObjectPtr &dest, GSUnsignedInteger getflags, GSInteger selfidx)
 {

@@ -279,6 +279,27 @@ public:
         case TK_NAMESPACE:
             NamespaceStatement();
             break;
+        case TK_PUB:
+            Lex();
+            if (_token == TK_FUNCTION) {
+                FunctionStatement(true);
+            } else if (_token == TK_CLASS) {
+                ClassStatement(true);
+            } else if (_token == TK_IDENTIFIER) {
+                GSObject id = Expect(TK_IDENTIFIER);
+                _fs->AddInstruction(_OP_LOADROOT, _fs->PushTarget());
+                _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(_fs->CreateString(_SC("__namespace"))));
+                Emit2ArgsOP(_OP_GET); 
+                
+                _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(id));
+                Expect(_SC('='));
+                Expression();
+                EmitDerefOp(_OP_NEWSLOT);
+                _fs->PopTarget();
+            } else {
+                Error(_SC("expected 'func', 'class', or identifier after 'pub'"));
+            }
+            break;
         case _SC('{'):{
                 BEGIN_SCOPE();
                 Lex();
@@ -1302,11 +1323,19 @@ public:
         if(__nbreaks__ > 0)ResolveBreaks(_fs, __nbreaks__);
         _fs->_breaktargets.pop_back();
     }
-    void FunctionStatement()
+    void FunctionStatement(bool is_pub = false)
     {
         GSObject id;
         Lex(); id = Expect(TK_IDENTIFIER);
-        _fs->PushTarget(0);
+        
+        if (is_pub) {
+            _fs->AddInstruction(_OP_LOADROOT, _fs->PushTarget());
+            _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(_fs->CreateString(_SC("__namespace"))));
+            Emit2ArgsOP(_OP_GET);
+        } else {
+            _fs->AddInstruction(_OP_LOADROOT, _fs->PushTarget());
+        }
+        
         _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(id));
         if(_token == TK_DOUBLE_COLON) Emit2ArgsOP(_OP_GET);
 
@@ -1326,13 +1355,28 @@ public:
         EmitDerefOp(_OP_NEWSLOT);
         _fs->PopTarget();
     }
-    void ClassStatement()
+    void ClassStatement(bool is_pub = false)
     {
         GSExpState es;
         Lex();
         es = _es;
         _es.donot_get = true;
-        PrefixedExpr();
+        
+        if (is_pub) {
+            GSObject id = Expect(TK_IDENTIFIER);
+            _fs->AddInstruction(_OP_LOADROOT, _fs->PushTarget());
+            _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(_fs->CreateString(_SC("__namespace"))));
+            Emit2ArgsOP(_OP_GET);
+
+            _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(id));
+            _es.etype = OBJECT;
+        } else {
+            GSObject id = Expect(TK_IDENTIFIER);
+            _fs->AddInstruction(_OP_LOADROOT, _fs->PushTarget());
+            _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(id));
+            _es.etype = OBJECT;
+        }
+        
         if(_es.etype == EXPR) {
             Error(_SC("invalid class name"));
         }

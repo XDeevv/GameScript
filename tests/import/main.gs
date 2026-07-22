@@ -1,4 +1,10 @@
+print("--- STARTING SCRIPT ---\n");
+
 import math/utils;
 
-print("Hello, world");
-print(math.utils.add(10, 10));
+import math/utils; 
+
+print("--- IMPORTS FINISHED ---\n");
+
+local result = math.utils.calculate(10);
+print("math.utils.calculate(10) returned: " + result + "\n");

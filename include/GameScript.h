@@ -65,10 +65,8 @@ struct GSOuter;
 
 #include "GSconfig.h"
 
-#define GameScript_VERSION    _SC("GameScript 3.2 stable")
-#define GameScript_COPYRIGHT  _SC("Copyright (C) 2003-2024 Alberto Demichelis")
-#define GameScript_AUTHOR     _SC("Alberto Demichelis")
-#define GameScript_VERSION_NUMBER 320
+#define GameScript_COPYRIGHT  _SC("Copyright (C) 2026 XarisD")
+#define GameScript_AUTHOR     _SC("XarisD")
 
 #define GS_VMSTATE_IDLE         0
 #define GS_VMSTATE_RUNNING      1

@@ -273,6 +273,12 @@ public:
         case TK_ENUM:
             EnumStatement();
             break;
+        case TK_IMPORT:
+            ImportStatement();
+            break;
+        case TK_NAMESPACE:
+            NamespaceStatement();
+            break;
         case _SC('{'):{
                 BEGIN_SCOPE();
                 Lex();
@@ -1410,6 +1416,70 @@ public:
         enums->NewSlot(GSObjectPtr(strongid),GSObjectPtr(table));
         strongid.Null();
         Lex();
+    }
+    void ImportStatement()
+    {
+        Lex();
+        
+        GSObject first_id = Expect(TK_IDENTIFIER);
+        
+        GSChar buf[1024];
+        GSInteger len = 0;
+        const GSChar* s1 = _stringval(first_id);
+        
+        while(*s1 && len < 1023) {
+            buf[len++] = *s1++;
+        }
+        
+        while (_token == '/') {
+            Lex(); // consume /
+            GSObject next_id = Expect(TK_IDENTIFIER);
+            
+            if (len < 1023) buf[len++] = _SC('/');
+            
+            const GSChar* s2 = _stringval(next_id);
+            while(*s2 && len < 1023) {
+                buf[len++] = *s2++;
+            }
+        }
+        buf[len] = _SC('\0');
+        
+        GSObject final_import = _fs->CreateString(buf, len);
+    
+        _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(final_import));
+        _fs->AddInstruction(_OP_IMPORT, _fs->PopTarget());
+    }
+    void NamespaceStatement()
+    {
+        Lex();
+        
+        GSObject first_id = Expect(TK_IDENTIFIER);
+        
+        GSChar buf[1024];
+        GSInteger len = 0;
+        const GSChar* s1 = _stringval(first_id);
+        
+        while(*s1 && len < 1023) {
+            buf[len++] = *s1++;
+        }
+        
+        while (_token == '/') {
+            Lex(); // consume '/'
+            GSObject next_id = Expect(TK_IDENTIFIER);
+            
+            if (len < 1023) buf[len++] = _SC('/');
+            
+            const GSChar* s2 = _stringval(next_id);
+            while(*s2 && len < 1023) {
+                buf[len++] = *s2++;
+            }
+        }
+        buf[len] = _SC('\0');
+        
+        GSObject final_namespace = _fs->CreateString(buf, len);
+        
+        _fs->AddInstruction(_OP_LOAD, _fs->PushTarget(), _fs->GetConstant(final_namespace));
+        _fs->AddInstruction(_OP_NAMESPACE, _fs->PopTarget());
     }
     void TryCatchStatement()
     {

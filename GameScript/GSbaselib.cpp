@@ -12,6 +12,23 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include "version.h"
+
+GSInteger GS_getversion()
+{
+    return (GAMESCRIPT_VERSION_MAJOR << 16) |
+           (GAMESCRIPT_VERSION_MINOR << 8) |
+            GAMESCRIPT_VERSION_PATCH;
+}
+
+static const GSChar* GetVersionString() {
+    static GSChar versionBuf[16];
+    scsprintf(versionBuf, 16, _SC("%d.%d.%d"), 
+              GAMESCRIPT_VERSION_MAJOR, 
+              GAMESCRIPT_VERSION_MINOR, 
+              GAMESCRIPT_VERSION_PATCH);
+    return versionBuf;
+}
 
 static bool str2num(const GSChar *s,GSObjectPtr &res,GSInteger base)
 {
@@ -319,12 +336,11 @@ void GS_base_register(HGameScriptVM v)
         GS_newslot(v,-3, GSFalse);
         i++;
     }
-
     GS_pushstring(v,_SC("_versionnumber_"),-1);
-    GS_pushinteger(v,GameScript_VERSION_NUMBER);
+    GS_pushinteger(v,GS_getversion());
     GS_newslot(v,-3, GSFalse);
     GS_pushstring(v,_SC("_version_"),-1);
-    GS_pushstring(v,GameScript_VERSION,-1);
+    GS_pushstring(v,GetVersionString(),-1);
     GS_newslot(v,-3, GSFalse);
     GS_pushstring(v,_SC("_charsize_"),-1);
     GS_pushinteger(v,sizeof(GSChar));

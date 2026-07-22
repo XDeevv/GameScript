@@ -13,6 +13,10 @@
 #include "GSuserdata.h"
 #include "GSarray.h"
 #include "GSclass.h"
+#include "gstdio.h"
+
+#include <stdio.h>
+#include "GScompiler.h"
 
 #define TOP() (_stack._vals[_top-1])
 #define TARGET _stack._vals[_stackbase+arg0]
@@ -695,6 +699,77 @@ bool GSVM::IsFalse(GSObjectPtr &o)
     return false;
 }
 extern GSInstructionDesc g_InstrDesc[];
+
+static bool ResolveNamespaceTable(GSVM* vm, GSObjectPtr root, GSObjectPtr namespace_str, GSObjectPtr &target_table) {
+    const GSChar *str = _stringval(namespace_str);
+    GSObjectPtr current = root;
+    GSChar buf[256];
+    int i = 0;
+    
+    while (*str) {
+        if (*str == _SC('/')) {
+            buf[i] = _SC('\0');
+            GSObjectPtr key = GSString::Create(_ss(vm), buf, i);
+            GSObjectPtr next_table;
+            if (!vm->Get(current, key, next_table, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) return false;
+            current = next_table;
+            i = 0;
+        } else {
+            if (i < 255) buf[i++] = *str;
+        }
+        str++;
+    }
+    if (i > 0) {
+        buf[i] = _SC('\0');
+        GSObjectPtr key = GSString::Create(_ss(vm), buf, i);
+        GSObjectPtr next_table;
+        if (!vm->Get(current, key, next_table, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) return false;
+        current = next_table;
+    }
+    target_table = current;
+    return true;
+}
+
+static GSObjectPtr BuildNamespaceTables(GSVM* vm, GSObjectPtr root, GSObjectPtr namespace_str) {
+    const GSChar *str = _stringval(namespace_str);
+    GSObjectPtr current = root;
+    GSChar buf[256];
+    int i = 0;
+    
+    while (*str) {
+        if (*str == _SC('/')) {
+            buf[i] = _SC('\0');
+            GSObjectPtr key = GSString::Create(_ss(vm), buf, i);
+            GSObjectPtr next_table;
+            
+            if (!vm->Get(current, key, next_table, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) {
+    next_table = GSTable::Create(_ss(vm), 0);
+    
+    _table(next_table)->SetDelegate(_table(vm->_roottable));
+    
+    vm->NewSlot(current, key, next_table, false);
+    // scprintf(_SC("Created namespace table for: %s\n"), _stringval(key));
+}
+            current = next_table;
+            i = 0;
+        } else {
+            if (i < 255) buf[i++] = *str;
+        }
+        str++;
+    }
+    if (i > 0) {
+        buf[i] = _SC('\0');
+        GSObjectPtr key = GSString::Create(_ss(vm), buf, i);
+        GSObjectPtr next_table;
+        if (!vm->Get(current, key, next_table, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) {
+            next_table = GSTable::Create(_ss(vm), 0);
+            
+            vm->NewSlot(current, key, next_table, false);
+        }
+        current = next_table;
+    }
+    return current;
+}
 bool GSVM::Execute(GSObjectPtr &closure, GSInteger nargs, GSInteger stackbase,GSObjectPtr &outres, GSBool raiseerror,ExecutionType et)
 {
     if ((_nnativecalls + 1) > MAX_NATIVE_CALLS) { Raise_Error(_SC("Native stack overflow")); return false; }
@@ -740,12 +815,36 @@ exception_restore:
         for(;;)
         {
             const GSInstruction &_i_ = *ci->_ip++;
-            //dumpstack(_stackbase);
-            //scprintf("\n[%d] %s %d %d %d %d\n",ci->_ip-_closure(ci->_closure)->_function->_instructions,g_InstrDesc[_i_.op].name,arg0,arg1,arg2,arg3);
             switch(_i_.op)
             {
             case _OP_LINE: if (_debughook) CallDebugHook(_SC('l'),arg1); continue;
             case _OP_LOAD: TARGET = ci->_literals[arg1]; continue;
+            case _OP_NAMESPACE: {
+                GSObjectPtr ns_string = STK(arg0);
+
+                GSObjectPtr current_table = BuildNamespaceTables(this, _roottable, ns_string);
+                GSClosure *c = _closure(ci->_closure);
+                GSWeakRef *new_root = _table(current_table)->GetWeakRef(OT_TABLE);
+    
+                __ObjAddRef(new_root);
+                if (c->_root) {
+                    __ObjRelease(c->_root);
+                }
+                c->_root = new_root;
+                
+                STK(0) = current_table; 
+    
+                continue;
+            }
+
+            case _OP_IMPORT: {
+                GSObjectPtr import_string = STK(arg0);
+                
+                GSClosure *c = _closure(ci->_closure);
+                c->_imports.push_back(import_string);
+                
+                continue;
+            }
             case _OP_LOADINT:
 #ifndef _GS64
                 TARGET = (GSInteger)arg1; continue;
@@ -1265,6 +1364,13 @@ bool GSVM::TailCall(GSClosure *closure, GSInteger parambase,GSInteger nparams)
 #define FALLBACK_NO_MATCH   1
 #define FALLBACK_ERROR      2
 
+static GSInteger ImportFileRead(GSUserPointer file) {
+    FILE *f = (FILE *)file;
+    int c = fgetc(f);
+    if (c == EOF) return 0;
+    return c;
+}
+
 bool GSVM::Get(const GSObjectPtr &self, const GSObjectPtr &key, GSObjectPtr &dest, GSUnsignedInteger getflags, GSInteger selfidx)
 {
     switch(GS_type(self)){
@@ -1312,9 +1418,85 @@ bool GSVM::Get(const GSObjectPtr &self, const GSObjectPtr &key, GSObjectPtr &des
         {
             if(Get(*((const GSObjectPtr *)&w->_obj),key,dest,0,DONT_FALL_BACK)) return true;
         }
-
     }
 //#endif
+
+    // NEW DYNAMIC IMPORT FALLBACK
+    if(selfidx == 0) {
+        GSClosure *cur_cls = _closure(ci->_closure);
+        
+        for(size_t i = 0; i < cur_cls->_imports.size(); i++) {
+            GSObjectPtr import_str = cur_cls->_imports[i];
+            GSObjectPtr target_table;
+            
+            if(!ResolveNamespaceTable(this, _roottable, import_str, target_table)) {
+                
+                GSChar filepath[1024];
+                const GSChar* src = _stringval(import_str);
+                int c = 0;
+                while (*src && c < 1019) {
+                    filepath[c++] = (*src == _SC('/')) ? _SC('/') : *src;
+                    src++;
+                }
+                
+                // append ".gs" extension
+                filepath[c++] = _SC('.');
+                filepath[c++] = _SC('g');
+                filepath[c++] = _SC('s');
+                filepath[c] = _SC('\0');
+                
+                FILE *f = NULL;
+#ifdef GSUNICODE
+                f = _wfopen(filepath, _SC("rb"));
+#else
+                f = fopen(filepath, _SC("rb"));
+#endif
+                
+                if (f) {
+                    GSObjectPtr closure_out;
+                    if (Compile(this, ImportFileRead, f, filepath, closure_out, true, true)) {
+                        GSClosure *closure = GSClosure::Create(_ss(this), _funcproto(closure_out), _table(_roottable)->GetWeakRef(OT_TABLE));
+                        GSObjectPtr closure_obj = closure;
+
+                        GSInteger oldtop = _top;
+    
+                        Push(_roottable); 
+    
+                        GSObjectPtr out;
+                        Call(closure_obj, 1, oldtop, out, GSTrue);
+    
+                        _top = oldtop; // restore stack
+                    }
+                    fclose(f);
+                } 
+                else {
+                    Raise_Error(_SC("cannot load imported module '%s' (file not found: %s)"), _stringval(import_str), filepath);
+                    return false;
+                }
+            }
+            
+            if(ResolveNamespaceTable(this, _roottable, import_str, target_table)) {
+                
+                // re-check the root table! 
+                GSWeakRef *w = _closure(ci->_closure)->_root;
+                GSObjectPtr root_obj = (GS_type(w->_obj) != OT_NULL) ? *((const GSObjectPtr *)&w->_obj) : _roottable;
+                
+                if(Get(root_obj, key, dest, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) {
+                    return true;
+                }
+
+                // check the target table! 
+                if(Get(target_table, key, dest, GET_FLAG_DO_NOT_RAISE_ERROR, DONT_FALL_BACK)) {
+                    return true;
+                }
+            } 
+            else {
+                Raise_Error(_SC("module '%s' was loaded but did not declare the expected namespace"), _stringval(import_str));
+                return false;
+            }
+        }
+    }
+
     if ((getflags & GET_FLAG_DO_NOT_RAISE_ERROR) == 0) Raise_IdxError(key);
     return false;
 }

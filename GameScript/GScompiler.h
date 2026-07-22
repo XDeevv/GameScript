@@ -71,6 +71,9 @@ struct GSVM;
 #define TK_ENUM 323
 #define TK_CONST 324
 #define TK_RAWCALL 325
+#define TK_PUB 326
+#define TK_IMPORT 328
+#define TK_NAMESPACE 329
 
 
 

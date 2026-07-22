@@ -38,7 +38,7 @@ void GSLexer::Init(GSSharedState *ss, GSLEXREADFUNC rg, GSUserPointer up,Compile
     ADD_KEYWORD(continue, TK_CONTINUE);
     ADD_KEYWORD(return, TK_RETURN);
     ADD_KEYWORD(null, TK_NULL);
-    ADD_KEYWORD(function, TK_FUNCTION);
+    ADD_KEYWORD(func, TK_FUNCTION);
     ADD_KEYWORD(local, TK_LOCAL);
     ADD_KEYWORD(for, TK_FOR);
     ADD_KEYWORD(foreach, TK_FOREACH);
@@ -68,7 +68,9 @@ void GSLexer::Init(GSSharedState *ss, GSLEXREADFUNC rg, GSUserPointer up,Compile
     ADD_KEYWORD(__LINE__,TK___LINE__);
     ADD_KEYWORD(__FILE__,TK___FILE__);
     ADD_KEYWORD(rawcall, TK_RAWCALL);
-
+    ADD_KEYWORD(pub, TK_PUB);
+    ADD_KEYWORD(import, TK_IMPORT);
+    ADD_KEYWORD(namespace, TK_NAMESPACE);
 
     _readf = rg;
     _up = up;

@@ -17,6 +17,9 @@
 #include <gstdstring.h>
 #include <gstdaux.h>
 
+// Include your new version header
+#include "version.h" 
+
 #ifdef GSUNICODE
 #define scfprintf fwprintf
 #define scvprintf vfwprintf
@@ -64,7 +67,13 @@ void errorfunc(HGameScriptVM GS_UNUSED_ARG(v),const GSChar *s,...)
 
 void PrintVersionInfos()
 {
-    scfprintf(stdout,_SC("%s %s (%d bits)\n"),GameScript_VERSION,GameScript_COPYRIGHT,((int)(sizeof(GSInteger)*8)));
+    // Updated to use the macros from version.h
+    scfprintf(stdout,_SC("GameScript v%d.%d.%d %s (%d bits)\n"),
+              GAMESCRIPT_VERSION_MAJOR, 
+              GAMESCRIPT_VERSION_MINOR, 
+              GAMESCRIPT_VERSION_PATCH,
+              GameScript_COPYRIGHT,
+              ((int)(sizeof(GSInteger)*8)));
 }
 
 void PrintUsage()
@@ -346,5 +355,3 @@ int main(int argc, char* argv[])
 #endif
     return retval;
 }
-
-

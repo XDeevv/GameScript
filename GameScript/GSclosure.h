@@ -64,6 +64,7 @@ public:
 #endif
     GSWeakRef *_env;
     GSWeakRef *_root;
+    GSObjectPtrVec _imports;
     GSClass *_base;
     GSFunctionProto *_function;
     GSObjectPtr *_outervalues;

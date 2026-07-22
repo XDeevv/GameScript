@@ -12,6 +12,7 @@
 #include "GScompiler.h"
 #include "GSfuncstate.h"
 #include "GSclass.h"
+#include "version.h"
 
 static bool GS_aux_gettypedarg(HGameScriptVM v,GSInteger idx,GSObjectType type,GSObjectPtr **o)
 {
@@ -119,9 +120,11 @@ void GS_close(HGameScriptVM v)
     GS_delete(ss, GSSharedState);
 }
 
-GSInteger GS_getversion()
+GSInteger GS_getversionst()
 {
-    return GameScript_VERSION_NUMBER;
+    return (GAMESCRIPT_VERSION_MAJOR << 16) |
+           (GAMESCRIPT_VERSION_MINOR << 8) |
+            GAMESCRIPT_VERSION_PATCH;
 }
 
 GSRESULT GS_compile(HGameScriptVM v,GSLEXREADFUNC read,GSUserPointer p,const GSChar *sourcename,GSBool raiseerror)

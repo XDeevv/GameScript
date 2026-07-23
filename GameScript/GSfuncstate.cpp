@@ -350,18 +350,20 @@ bool GSFuncState::IsLocal(GSUnsignedInteger stkpos)
     return false;
 }
 
-GSInteger GSFuncState::PushLocalVariable(const GSObject &name)
+GSInteger GSFuncState::PushLocalVariable(const GSObject &name, GSInteger type, GSInteger array_size)
 {
     GSInteger pos=_vlocals.size();
     GSLocalVarInfo lvi;
-    lvi._name=name;
-    lvi._start_op=GetCurrentPos()+1;
-    lvi._pos=_vlocals.size();
+    lvi._name = name;
+    lvi._start_op = GetCurrentPos() + 1;
+    lvi._pos = _vlocals.size();
+    lvi._type = type;
+    lvi._array_size = array_size;
+    
     _vlocals.push_back(lvi);
     if(_vlocals.size()>((GSUnsignedInteger)_stacksize))_stacksize=_vlocals.size();
     return pos;
 }
-
 
 
 GSInteger GSFuncState::GetLocalVariable(const GSObject &name)

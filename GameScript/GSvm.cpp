@@ -1171,8 +1171,89 @@ exception_restore:
                 default: val._type = OT_INTEGER; assert(0); break;
 
                 }
-                _array(STK(arg0))->Append(val); continue;
+                
+                // the array is full and Raise_Error was already triggered.
+                if (!_array(STK(arg0))->Append(val, this)) {
+                    GS_THROW();
                 }
+                continue;
+                }
+            case _OP_TYPECHECK: {
+                GSObject &val = STK(arg0);
+                GSInteger expected_tok = arg1;
+                GSInteger arr_size = arg2;
+
+                bool is_array_expected = (expected_tok < 0);
+                if (is_array_expected) {
+                    expected_tok = -expected_tok; // restore the real token
+                }
+
+                if (is_array_expected) {
+                    if (GS_type(val) != OT_ARRAY) {
+                        Raise_Error(_SC("type mismatch: expected an array"));
+                        GS_THROW();
+                    }
+
+                    GSArray* arr_obj = _array(val);
+
+                    if (arr_size > 0 && arr_obj->_max_capacity == -1) {
+                        arr_obj->_max_capacity = arr_size;
+                    }
+
+                    if (arr_size > 0 && (GSInteger)arr_obj->Size() > arr_size) {
+                        Raise_Error(_SC("type mismatch: array literal exceeds strict fixed size of %d"), arr_size);
+                        GS_THROW();
+                    }
+
+                    if (arr_size > 0 && arr_obj->_max_capacity == -1) {
+                        arr_obj->_max_capacity = arr_size;
+                    }
+
+                    if (arr_obj->_element_type == -1) {
+                        arr_obj->_element_type = expected_tok;
+                    }
+                    
+                    for (size_t i = 0; i < arr_obj->Size(); i++) {
+                        GSObject &elem = arr_obj->_values[i];
+                        bool elem_ok = false;
+                        switch(expected_tok) {
+                            case TK_INT:    elem_ok = (GS_type(elem) == OT_INTEGER); break;
+                            case TK_FLOAT:  elem_ok = (GS_type(elem) == OT_FLOAT || GS_type(elem) == OT_INTEGER); break;
+                            case TK_STRING: elem_ok = (GS_type(elem) == OT_STRING); break;
+                            case TK_BOOL:   elem_ok = (GS_type(elem) == OT_BOOL); break;
+                            case TK_IDENTIFIER: elem_ok = true; break; 
+                        }
+                        if (!elem_ok) {
+                            Raise_Error(_SC("type mismatch: array element at index %d does not match expected type"), (GSInteger)i);
+                            GS_THROW();
+                        }
+                    }
+                    
+                    continue;
+                }
+
+                bool ok = false;
+                switch(expected_tok) {
+                    case TK_INT:    ok = (GS_type(val) == OT_INTEGER); break;
+                    case TK_FLOAT:  ok = (GS_type(val) == OT_FLOAT || GS_type(val) == OT_INTEGER); break;
+                    case TK_STRING: ok = (GS_type(val) == OT_STRING); break;
+                    case TK_BOOL:   ok = (GS_type(val) == OT_BOOL); break;
+                    case TK_IDENTIFIER: ok = true; break; // custom classes handle their own validation later
+                }
+
+                if (!ok) {
+                    Raise_Error(_SC("strict type mismatch: invalid assignment"));
+                    GS_THROW();
+                }
+                continue;
+            }
+            case _OP_MATCHTYPES: {
+                if (GS_type(STK(arg0)) != GS_type(STK(arg1))) {
+                    Raise_Error(_SC("strict type mismatch: generic parameters bound to the same type must match"));
+                    GS_THROW();
+                }
+                continue;
+            }
             case _OP_COMPARITH: {
                 GSInteger selfidx = (((GSUnsignedInteger)arg1&0xFFFF0000)>>16);
                 _GUARD(DerefInc(arg3, TARGET, STK(selfidx), STK(arg2), STK(arg1&0x0000FFFF), false, selfidx));
@@ -2052,6 +2133,36 @@ GSObjectPtr &GSVM::Top() { return _stack[_top-1]; }
 GSObjectPtr &GSVM::PopGet() { return _stack[--_top]; }
 GSObjectPtr &GSVM::GetUp(GSInteger n) { return _stack[_top+n]; }
 GSObjectPtr &GSVM::GetAt(GSInteger n) { return _stack[n]; }
+
+bool GSArray::Append(const GSObject &o, GSVM *vm) {
+    if (_max_capacity != -1 && _values.size() >= (size_t)_max_capacity) {
+        if (vm) {
+            vm->Raise_Error(_SC("array bounds exceeded: attempted to push element %d into a fixed array of size %d"), 
+                            (GSInteger)(_values.size() + 1), _max_capacity);
+        }
+        return false;
+    }
+
+    if (_element_type != -1) {
+        bool elem_ok = false;
+        switch(_element_type) {
+            case TK_INT:    elem_ok = (GS_type(o) == OT_INTEGER); break;
+            case TK_FLOAT:  elem_ok = (GS_type(o) == OT_FLOAT || GS_type(o) == OT_INTEGER); break;
+            case TK_STRING: elem_ok = (GS_type(o) == OT_STRING); break;
+            case TK_BOOL:   elem_ok = (GS_type(o) == OT_BOOL); break;
+            case TK_IDENTIFIER: elem_ok = true; break; 
+        }
+        if (!elem_ok) {
+            if (vm) {
+                vm->Raise_Error(_SC("strict type mismatch: attempted to append invalid type to array"));
+            }
+            return false;
+        }
+    }
+    
+    _values.push_back(o);
+    return true;
+}
 
 #ifdef _DEBUG_DUMP
 void GSVM::dumpstack(GSInteger stackbase,bool dumpall)

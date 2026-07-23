@@ -1,18 +1,9 @@
-print("--- TESTING GENERICS & CUSTOM TYPES ---\n");
-
-// Test 1: Function with generic type parameters and matching return type
-func identity<T>(value: T) -> T {
-    return value;
+func assert_equal<T>(a: T, b: T) -> bool {
+    return a == b;
 }
 
-local res: int = identity<int>(100);
-print("identity<int>(100) = " + res + "\n");
+println(assert_equal(100, 100)); // Should pass (true)
+println(assert_equal("test", "tessst")); // Should pass (true)
 
-// Test 2: Void function validation
-func log_data() -> void {
-    print("Logging execution...\n");
-    return;
-}
-
-log_data();
-print("Void function executed successfully!\n");
+// UNCOMMENT TO TEST:
+println(assert_equal(42, "forty-two"));

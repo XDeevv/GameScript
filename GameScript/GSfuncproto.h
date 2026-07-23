@@ -39,11 +39,15 @@ struct GSLocalVarInfo
         _start_op=lvi._start_op;
         _end_op=lvi._end_op;
         _pos=lvi._pos;
+        _type = -1;
+        _array_size = -1;
     }
     GSObjectPtr _name;
     GSUnsignedInteger _start_op;
     GSUnsignedInteger _end_op;
     GSUnsignedInteger _pos;
+    GSInteger _type;
+    GSInteger _array_size;
 };
 
 struct GSLineInfo { GSInteger _line;GSInteger _op; };

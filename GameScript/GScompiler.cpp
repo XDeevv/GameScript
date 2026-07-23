@@ -14,6 +14,8 @@
 #include "GSvm.h"
 #include "GStable.h"
 
+#include <vector>
+
 #define EXPR   1
 #define OBJECT 2
 #define BASE   3
@@ -426,11 +428,20 @@ public:
                 break;
             case _SC('='): //ASSIGN
                 switch(ds) {
-                case LOCAL:
+                    case LOCAL:
                     {
                         GSInteger src = _fs->PopTarget();
                         GSInteger dst = _fs->TopTarget();
                         _fs->AddInstruction(_OP_MOVE, dst, src);
+
+                        for (size_t i = 0; i < _fs->_vlocals.size(); i++) {
+                            if (_fs->_vlocals[i]._pos == (GSUnsignedInteger)dst) {
+                                if (_fs->_vlocals[i]._type != -1) {
+                                    _fs->AddInstruction(_OP_TYPECHECK, dst, _fs->_vlocals[i]._type, _fs->_vlocals[i]._array_size);
+                                }
+                                break;
+                            }
+                        }
                     }
                     break;
                 case OBJECT:
@@ -1111,12 +1122,12 @@ public:
         GSObject varname;
         Lex();
         if( _token == TK_FUNCTION) {
-			GSInteger boundtarget = 0xFF;
+            GSInteger boundtarget = 0xFF;
             Lex();
-			varname = Expect(TK_IDENTIFIER);
-			if (_token == _SC('[')) {
-				boundtarget = ParseBindEnv();
-			}
+            varname = Expect(TK_IDENTIFIER);
+            if (_token == _SC('[')) {
+                boundtarget = ParseBindEnv();
+            }
             //Expect(_SC('('));
             CreateFunction(varname,0xFF,false);
             _fs->AddInstruction(_OP_CLOSURE, _fs->PushTarget(), _fs->_functions.size() - 1, boundtarget);
@@ -1128,12 +1139,32 @@ public:
         do {
             varname = Expect(TK_IDENTIFIER);
             
+            GSInteger expected_type = -1;
+            GSInteger array_size = -1; 
+            bool is_array = false;
+
             if (_token == _SC(':')) {
                 Lex(); // consume ':'
-                if (_token != TK_INT && _token != TK_FLOAT && _token != TK_STRING && _token != TK_BOOL) {
-                    Error(_SC("expected type name after ':'"));
+                expected_type = _token;
+                bool is_valid_type = (_token == TK_INT || _token == TK_FLOAT || _token == TK_STRING || 
+                                      _token == TK_BOOL || _token == TK_VOID || _token == TK_IDENTIFIER);
+                if (!is_valid_type) {
+                    Error(_SC("expected a valid type name after ':'"));
                 }
                 Lex(); // consume type token
+
+                if (_token == _SC('[')) {
+                    is_array = true; 
+                    Lex();
+                    if (_token == TK_INTEGER) {
+                        array_size = _lex._nvalue;
+                        if (array_size <= 0) {
+                            Error(_SC("type mismatch: fixed array size must be greater than 0"));
+                        }
+                        Lex();
+                    }
+                    Expect(_SC(']'));
+                }
             }
 
             if(_token == _SC('=')) {
@@ -1146,12 +1177,32 @@ public:
                     }
                     _fs->AddInstruction(_OP_MOVE, dest, src);
                 }
+                
+                if (expected_type != -1) {
+                    GSInteger check_type = is_array ? -expected_type : expected_type;
+                
+                    _fs->AddInstruction(_OP_TYPECHECK, dest, check_type, array_size);
+                }
             }
             else{
+                if (expected_type != -1) {
+                    Error(_SC("strict type declarations must be initialized (cannot default to null)"));
+                }
                 _fs->AddInstruction(_OP_LOADNULLS, _fs->PushTarget(),1);
             }
+
             _fs->PopTarget();
-            _fs->PushLocalVariable(varname);
+
+            GSInteger check_type = (expected_type != -1) ? (is_array ? -expected_type : expected_type) : -1;
+            _fs->PushLocalVariable(varname, check_type, array_size);
+            
+            // FORCES THE TYPE METADATA TO SAVE (kinda hacky but please dont remove)
+            if (_fs->_vlocals.size() > 0) {
+                size_t last_idx = _fs->_vlocals.size() - 1;
+                _fs->_vlocals[last_idx]._type = check_type;
+                _fs->_vlocals[last_idx]._array_size = array_size;
+            }
+
             if(_token == _SC(',')) Lex(); else break;
         } while(1);
     }
@@ -1701,10 +1752,21 @@ public:
         funcstate->AddParameter(_fs->CreateString(_SC("this")));
         funcstate->_sourcename = _sourcename;
 
+        struct GenericDef {
+            GSObject name;
+            std::vector<GSInteger> param_regs;
+        };
+        std::vector<GenericDef> generics;
+
         if (_token == _SC('<')) {
             Lex(); // consume '<'
             do {
-                Expect(TK_IDENTIFIER);
+                GSObject gen_name = Expect(TK_IDENTIFIER);
+                
+                GenericDef def;
+                def.name = gen_name;
+                generics.push_back(def);
+                
                 if (_token == _SC(',')) {
                     Lex();
                 } else {
@@ -1717,11 +1779,14 @@ public:
         Expect(_SC('('));
 
         GSInteger defparams = 0;
+        GSInteger current_param_idx = 1;
+
         while(_token!=_SC(')')) {
             if(_token == TK_VARPARAMS) {
                 if(defparams > 0) Error(_SC("function with default parameters cannot have variable number of parameters"));
                 funcstate->AddParameter(_fs->CreateString(_SC("vargv")));
                 funcstate->_varparams = true;
+                current_param_idx++; // Increment our tracker
                 Lex();
                 if(_token != _SC(')')) Error(_SC("expected ')'"));
                 break;
@@ -1729,17 +1794,48 @@ public:
             else {
                 paramname = Expect(TK_IDENTIFIER);
                 
+                GSObject type_id;
+                type_id._type = OT_NULL;
+                
                 if (_token == _SC(':')) {
                     Lex();
+                    
+                    if (_token == TK_IDENTIFIER) {
+                        type_id = _fs->CreateString(_lex._svalue);
+                    }
+
                     bool is_valid_type = (_token == TK_INT || _token == TK_FLOAT || _token == TK_STRING || 
                                           _token == TK_BOOL || _token == TK_VOID || _token == TK_IDENTIFIER);
                     if (!is_valid_type) {
                         Error(_SC("expected a valid type name after ':'"));
                     }
                     Lex();
+
+                    if (_token == _SC('[')) {
+                        Lex(); // consume '['
+                        if (_token == TK_INTEGER) {
+                            if (_lex._nvalue <= 0) {
+                                Error(_SC("type mismatch: parameter array size must be greater than 0"));
+                            }
+                            Lex(); // consume the size integer
+                        }
+                        Expect(_SC(']')); // consume ']'
+                    }
                 }
 
                 funcstate->AddParameter(paramname);
+                
+                if (GS_type(type_id) == OT_STRING) {
+                    for(size_t i = 0; i < generics.size(); i++) {
+                        if (scstrcmp(_stringval(generics[i].name), _stringval(type_id)) == 0) {
+                            generics[i].param_regs.push_back(current_param_idx);
+                        }
+                    }
+                }
+
+                
+                current_param_idx++;
+
                 if(_token == _SC('=')) {
                     Lex();
                     Expression();
@@ -1765,17 +1861,39 @@ public:
             }
             expected_rettype = _token;
             Lex();
+
+            if (_token == _SC('[')) {
+                Lex(); // consume '['
+                if (_token == TK_INTEGER) {
+                    GSInteger array_size = _lex._nvalue;
+                    if (array_size <= 0) {
+                        Error(_SC("type mismatch: fixed array size must be greater than 0"));
+                    }
+                    Lex(); // consume the size integer
+                }
+                Expect(_SC(']')); // consume ']'
+            }
         }
 
-		if (boundtarget != 0xFF) {
-			_fs->PopTarget();
-		}
+        if (boundtarget != 0xFF) {
+            _fs->PopTarget();
+        }
         for(GSInteger n = 0; n < defparams; n++) {
             _fs->PopTarget();
         }
 
         GSFuncState *currchunk = _fs;
         _fs = funcstate;
+        
+        for (size_t i = 0; i < generics.size(); i++) {
+            if (generics[i].param_regs.size() > 1) {
+                GSInteger base_reg = generics[i].param_regs[0]; 
+                for (size_t j = 1; j < generics[i].param_regs.size(); j++) {
+                    _fs->AddInstruction(_OP_MATCHTYPES, base_reg, generics[i].param_regs[j]);
+                }
+            }
+        }
+        
         if(lambda) {
             Expression();
             _fs->AddInstruction(_OP_RETURN, 1, _fs->PopTarget());}

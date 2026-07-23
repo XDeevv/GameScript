@@ -11,9 +11,13 @@ private:
         REMOVE_FROM_CHAIN(&_ss(this)->_gc_chain,this);
     }
 public:
-    static GSArray* Create(GSSharedState *ss,GSInteger nInitialSize){
+    static GSArray* Create(GSSharedState *ss, GSInteger nInitialSize){
         GSArray *newarray=(GSArray*)GS_MALLOC(sizeof(GSArray));
-        new (newarray) GSArray(ss,nInitialSize);
+        new (newarray) GSArray(ss, nInitialSize);
+        
+        newarray->_max_capacity = -1; 
+        newarray->_element_type = -1; // ---> Initialize to -1 (dynamic)
+        
         return newarray;
     }
 #ifndef NO_GARBAGE_COLLECTOR
@@ -56,6 +60,8 @@ public:
     }
     GSArray *Clone(){GSArray *anew=Create(_opt_ss(this),0); anew->_values.copy(_values); return anew; }
     GSInteger Size() const {return _values.size();}
+    GSInteger _max_capacity;
+    GSInteger _element_type;
     void Resize(GSInteger size)
     {
         GSObjectPtr _null;
@@ -63,7 +69,7 @@ public:
     }
     void Resize(GSInteger size,GSObjectPtr &fill) { _values.resize(size,fill); ShrinkIfNeeded(); }
     void Reserve(GSInteger size) { _values.reserve(size); }
-    void Append(const GSObject &o){_values.push_back(o);}
+    bool Append(const GSObject &o, GSVM *vm = NULL);
     void Extend(const GSArray *a);
     GSObjectPtr &Top(){return _values.top();}
     void Pop(){_values.pop_back(); ShrinkIfNeeded(); }

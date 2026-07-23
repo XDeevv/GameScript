@@ -28,7 +28,7 @@ struct GSFuncState
     GSInteger GetCurrentPos(){return _instructions.size()-1;}
     GSInteger GetNumericConstant(const GSInteger cons);
     GSInteger GetNumericConstant(const GSFloat cons);
-    GSInteger PushLocalVariable(const GSObject &name);
+    GSInteger PushLocalVariable(const GSObject &name, GSInteger type = -1, GSInteger array_size = -1);
     void AddParameter(const GSObject &name);
     //void AddOuterValue(const GSObject &name);
     GSInteger GetLocalVariable(const GSObject &name);

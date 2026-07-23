@@ -222,6 +222,19 @@ static GSInteger base_print(HGameScriptVM v)
     return GS_ERROR;
 }
 
+static GSInteger base_println(HGameScriptVM v) 
+{
+    const GSChar *str;
+    if(GS_SUCCEEDED(GS_tostring(v,2))) 
+    {
+        if(GS_SUCCEEDED(GS_getstring(v,-1,&str))) {
+            if(_ss(v)->_printfunc) _ss(v)->_printfunc(v,_SC("%s\n"),str);
+            return 0;
+        }
+    }
+    return GS_ERROR;
+}
+
 static GSInteger base_error(HGameScriptVM v)
 {
     const GSChar *str;
@@ -309,6 +322,7 @@ static const GSRegFunction base_funcs[]={
     {_SC("setconsttable"),base_setconsttable,2, NULL},
     {_SC("assert"),base_assert,-2, NULL},
     {_SC("print"),base_print,2, NULL},
+    {_SC("println"),base_println,2, NULL},
     {_SC("error"),base_error,2, NULL},
     {_SC("compilestring"),base_compilestring,-2, _SC(".ss")},
     {_SC("newthread"),base_newthread,2, _SC(".c")},
@@ -588,7 +602,15 @@ const GSRegFunction GSSharedState::_table_default_delegate_funcz[]={
 
 static GSInteger array_append(HGameScriptVM v)
 {
-    return GS_SUCCEEDED(GS_arrayappend(v,-2)) ? 1 : GS_ERROR;
+    GSObject &arr_obj = stack_get(v, 1);
+    GSObject &val_obj = stack_get(v, 2);
+
+    if (!_array(arr_obj)->Append(val_obj, v)) {
+        return GS_ERROR; // Halts VM execution with our custom error!
+    }
+    
+    GS_pop(v, 1);
+    return 1;
 }
 
 static GSInteger array_extend(HGameScriptVM v)

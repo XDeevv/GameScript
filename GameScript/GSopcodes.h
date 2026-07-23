@@ -101,7 +101,9 @@ enum GSOpcode
     _OP_GETBASE=            0x3B,
     _OP_CLOSE=              0x3C,
     _OP_IMPORT=             0x3D,
-    _OP_NAMESPACE=          0x3E
+    _OP_NAMESPACE=          0x3E,
+    _OP_TYPECHECK=          0x3F,
+    _OP_MATCHTYPES=         0x40,
 };
 
 struct GSInstructionDesc {

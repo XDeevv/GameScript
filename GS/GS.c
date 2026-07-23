@@ -17,7 +17,6 @@
 #include <gstdstring.h>
 #include <gstdaux.h>
 
-// Include your new version header
 #include "version.h" 
 
 #ifdef GSUNICODE

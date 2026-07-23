@@ -71,6 +71,11 @@ void GSLexer::Init(GSSharedState *ss, GSLEXREADFUNC rg, GSUserPointer up,Compile
     ADD_KEYWORD(pub, TK_PUB);
     ADD_KEYWORD(import, TK_IMPORT);
     ADD_KEYWORD(namespace, TK_NAMESPACE);
+    ADD_KEYWORD(int, TK_INT);
+    ADD_KEYWORD(float, TK_FLOAT);
+    ADD_KEYWORD(str, TK_STRING);
+    ADD_KEYWORD(bool, TK_BOOL);
+    ADD_KEYWORD(void, TK_VOID);
 
     _readf = rg;
     _up = up;
@@ -252,6 +257,7 @@ GSInteger GSLexer::Lex()
             NEXT();
             if (CUR_CHAR == _SC('=')){ NEXT(); RETURN_TOKEN(TK_MINUSEQ);}
             else if  (CUR_CHAR == _SC('-')){ NEXT(); RETURN_TOKEN(TK_MINUSMINUS);}
+            else if (CUR_CHAR == _SC('>')){ NEXT(); RETURN_TOKEN(TK_ARROW);}
             else RETURN_TOKEN('-');
         case _SC('+'):
             NEXT();

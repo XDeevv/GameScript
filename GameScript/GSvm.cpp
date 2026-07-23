@@ -1050,9 +1050,54 @@ exception_restore:
                 if((ci)->_generator) {
                     (ci)->_generator->Kill();
                 }
+                
+                ///////////////////////////////////////
+                {
+                    GSClosure *cur_closure = _closure(ci->_closure);
+                    GSFunctionProto *proto = cur_closure->_function;
+                    if (proto->_rettype != 0 && arg0 != 0xFF) {
+                        GSObjectPtr &retval_to_check = STK(arg1);
+                        GSObjectType actual_type = GS_type(retval_to_check);
+                        bool type_matches = false;
+
+
+                        // TYPE SYSTEM
+                        switch (proto->_rettype) {
+                            case TK_VOID: {
+                                if (arg0 != 0xFF && actual_type != OT_NULL) {
+                                    Raise_Error(_SC("type mismatch: a 'void' function cannot return a value"));
+                                    GS_THROW();
+                                }
+                                type_matches = (arg0 == 0xFF || actual_type == OT_NULL); 
+                                break;
+                            }
+                            case TK_IDENTIFIER:
+                                type_matches = true;
+                                break;
+                            case TK_INT:    
+                                type_matches = (actual_type == OT_INTEGER); 
+                                break;
+                            case TK_FLOAT:  
+                                type_matches = (actual_type == OT_FLOAT || actual_type == OT_INTEGER);  // allow int promotion to float
+                                break;
+                            case TK_STRING: 
+                                type_matches = (actual_type == OT_STRING); 
+                                break;
+                            case TK_BOOL:   
+                                type_matches = (actual_type == OT_BOOL); 
+                                break;
+                        }
+
+                        if (!type_matches) {
+                            Raise_Error(_SC("type mismatch: function declared return type does not match returned value"));
+                            GS_THROW();
+                        }
+                    }
+                }
+                ///////////////////////////////////////
+
                 if(Return(arg0, arg1, temp_reg)){
                     assert(traps==0);
-                    //outres = temp_reg;
                     _Swap(outres,temp_reg);
                     return true;
                 }

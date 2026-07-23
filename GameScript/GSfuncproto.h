@@ -126,6 +126,8 @@ public:
     bool _bgenerator;
     GSInteger _varparams;
 
+    GSInteger _rettype;
+
     GSInteger _nlocalvarinfos;
     GSLocalVarInfo *_localvarinfos;
 

@@ -1,10 +1,18 @@
-print("--- STARTING SCRIPT ---\n");
+print("--- TESTING GENERICS & CUSTOM TYPES ---\n");
 
-import math/utils;
+// Test 1: Function with generic type parameters and matching return type
+func identity<T>(value: T) -> T {
+    return value;
+}
 
-import math/utils; 
+local res: int = identity<int>(100);
+print("identity<int>(100) = " + res + "\n");
 
-print("--- IMPORTS FINISHED ---\n");
+// Test 2: Void function validation
+func log_data() -> void {
+    print("Logging execution...\n");
+    return;
+}
 
-local result = math.utils.calculate(10);
-print("math.utils.calculate(10) returned: " + result + "\n");
+log_data();
+print("Void function executed successfully!\n");

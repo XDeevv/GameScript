@@ -712,6 +712,23 @@ public:
                 }
                 return;
                 break;
+            case _SC('<'): {
+                Lex(); // consume '<'
+                do {
+                    if (_token != TK_INT && _token != TK_FLOAT && _token != TK_STRING && 
+                        _token != TK_BOOL && _token != TK_VOID && _token != TK_IDENTIFIER) {
+                        Error(_SC("expected type name in generic argument list"));
+                    }
+                    Lex(); // consume type token
+                    if (_token == _SC(',')) {
+                        Lex();
+                    } else {
+                        break;
+                    }
+                } while (1);
+                Expect(_SC('>')); // consume '>'
+                break;
+            }
             case _SC('('):
                 switch(_es.etype) {
                     case OBJECT: {
@@ -723,7 +740,6 @@ public:
                         }
                         break;
                     case BASE:
-                        //Emit2ArgsOP(_OP_GET);
                         _fs->AddInstruction(_OP_MOVE, _fs->PushTarget(), 0);
                         break;
                     case OUTER:
@@ -734,7 +750,8 @@ public:
                         _fs->AddInstruction(_OP_MOVE, _fs->PushTarget(), 0);
                 }
                 _es.etype = EXPR;
-                Lex();
+
+                Lex(); // Now safely consume '(' after handling optional <...>
                 FunctionCallArgs();
                 break;
             default: return;
@@ -771,6 +788,29 @@ public:
 
                 GSInteger pos = -1;
                 Lex();
+
+                if (_token == _SC('<') || _token == '<') {
+                    Lex(); // consume '<'
+                    do {
+                        if (_token != TK_INT && _token != TK_FLOAT && _token != TK_STRING && 
+                            _token != TK_BOOL && _token != TK_VOID && _token != TK_IDENTIFIER) {
+                            Error(_SC("expected type name in generic argument list"));
+                        }
+                        Lex(); // consume type token
+                        if (_token == _SC(',')) {
+                            Lex();
+                        } else {
+                            break;
+                        }
+                    } while (1);
+                    
+                    if (_token == _SC('>') || _token == '>') {
+                        Lex(); // consume '>'
+                    } else {
+                        Error(_SC("expected '>' after generic argument list"));
+                    }
+                }
+
                 if((pos = _fs->GetLocalVariable(id)) != -1) {
                     /* Handle a local variable (includes 'this') */
                     _fs->PushTarget(pos);
@@ -1026,7 +1066,7 @@ public:
 				if (_token == _SC('[')) {
 					boundtarget = ParseBindEnv();
 				}
-                Expect(_SC('('));
+                //Expect(_SC('('));
                 
                 CreateFunction(id, boundtarget);
                 _fs->AddInstruction(_OP_CLOSURE, _fs->PushTarget(), _fs->_functions.size() - 1, boundtarget);
@@ -1077,7 +1117,7 @@ public:
 			if (_token == _SC('[')) {
 				boundtarget = ParseBindEnv();
 			}
-            Expect(_SC('('));
+            //Expect(_SC('('));
             CreateFunction(varname,0xFF,false);
             _fs->AddInstruction(_OP_CLOSURE, _fs->PushTarget(), _fs->_functions.size() - 1, boundtarget);
             _fs->PopTarget();
@@ -1087,6 +1127,15 @@ public:
 
         do {
             varname = Expect(TK_IDENTIFIER);
+            
+            if (_token == _SC(':')) {
+                Lex(); // consume ':'
+                if (_token != TK_INT && _token != TK_FLOAT && _token != TK_STRING && _token != TK_BOOL) {
+                    Error(_SC("expected type name after ':'"));
+                }
+                Lex(); // consume type token
+            }
+
             if(_token == _SC('=')) {
                 Lex(); Expression();
                 GSInteger src = _fs->PopTarget();
@@ -1349,7 +1398,7 @@ public:
 		if (_token == _SC('[')) {
 			boundtarget = ParseBindEnv();
 		}
-        Expect(_SC('('));
+        //Expect(_SC('('));
         CreateFunction(id, boundtarget);
         _fs->AddInstruction(_OP_CLOSURE, _fs->PushTarget(), _fs->_functions.size() - 1, boundtarget);
         EmitDerefOp(_OP_NEWSLOT);
@@ -1572,7 +1621,7 @@ public:
 		if (_token == _SC('[')) {
 			boundtarget = ParseBindEnv();
 		}
-		Expect(_SC('('));
+		//Expect(_SC('('));
         GSObjectPtr dummy;
         CreateFunction(dummy, boundtarget, lambda);
         _fs->AddInstruction(_OP_CLOSURE, _fs->PushTarget(), _fs->_functions.size() - 1, boundtarget);
@@ -1651,6 +1700,22 @@ public:
         GSObject paramname;
         funcstate->AddParameter(_fs->CreateString(_SC("this")));
         funcstate->_sourcename = _sourcename;
+
+        if (_token == _SC('<')) {
+            Lex(); // consume '<'
+            do {
+                Expect(TK_IDENTIFIER);
+                if (_token == _SC(',')) {
+                    Lex();
+                } else {
+                    break;
+                }
+            } while (1);
+            Expect(_SC('>')); // consume '>'
+        }
+
+        Expect(_SC('('));
+
         GSInteger defparams = 0;
         while(_token!=_SC(')')) {
             if(_token == TK_VARPARAMS) {
@@ -1663,6 +1728,17 @@ public:
             }
             else {
                 paramname = Expect(TK_IDENTIFIER);
+                
+                if (_token == _SC(':')) {
+                    Lex();
+                    bool is_valid_type = (_token == TK_INT || _token == TK_FLOAT || _token == TK_STRING || 
+                                          _token == TK_BOOL || _token == TK_VOID || _token == TK_IDENTIFIER);
+                    if (!is_valid_type) {
+                        Error(_SC("expected a valid type name after ':'"));
+                    }
+                    Lex();
+                }
+
                 funcstate->AddParameter(paramname);
                 if(_token == _SC('=')) {
                     Lex();
@@ -1678,6 +1754,19 @@ public:
             }
         }
         Expect(_SC(')'));
+        
+        GSInteger expected_rettype = 0;
+        if (_token == TK_ARROW) {
+            Lex();
+            bool is_valid_rettype = (_token == TK_INT || _token == TK_FLOAT || _token == TK_STRING || 
+                                     _token == TK_BOOL || _token == TK_VOID || _token == TK_IDENTIFIER);
+            if (!is_valid_rettype) {
+                Error(_SC("expected return type after '->'"));
+            }
+            expected_rettype = _token;
+            Lex();
+        }
+
 		if (boundtarget != 0xFF) {
 			_fs->PopTarget();
 		}
@@ -1698,6 +1787,8 @@ public:
         funcstate->SetStackSize(0);
 
         GSFunctionProto *func = funcstate->BuildProto();
+        func->_rettype = expected_rettype; 
+
 #ifdef _DEBUG_DUMP
         funcstate->Dump(func);
 #endif

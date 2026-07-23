@@ -74,6 +74,10 @@ struct GSVM;
 #define TK_PUB 326
 #define TK_IMPORT 328
 #define TK_NAMESPACE 329
+#define TK_INT 330
+#define TK_STRING 331
+#define TK_BOOL 332
+#define TK_VOID 333
 
 
 
